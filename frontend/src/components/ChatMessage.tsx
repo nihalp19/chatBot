@@ -9,37 +9,57 @@ interface ChatMessageProps {
   isLoading?: boolean;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ 
-  message, 
-  isBot, 
+export const ChatMessage: React.FC<ChatMessageProps> = ({
+  message,
+  isBot,
   timestamp,
   type = 'text',
   isLoading = false
 }) => {
   const [displayedMessage, setDisplayedMessage] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
+  const typingSpeed = 20; // milliseconds per character
+  const maxTypingDuration = 2000; // maximum typing animation duration in milliseconds
 
   React.useEffect(() => {
+    if (!message) {
+      setDisplayedMessage('');
+      return;
+    }
+
     if (isBot && !isLoading) {
       setIsTyping(true);
+      setDisplayedMessage(''); // Reset the displayed message
+      
+      const characters = message.split('');
+      const totalDuration = Math.min(characters.length * typingSpeed, maxTypingDuration);
+      const intervalDelay = totalDuration / characters.length;
+      
       let index = 0;
       const timer = setInterval(() => {
-        if (index < message.length) {
-          setDisplayedMessage(prev => prev + message[index]);
+        if (index < characters.length) {
+          setDisplayedMessage(prev => prev + characters[index]);
           index++;
         } else {
           setIsTyping(false);
           clearInterval(timer);
+          // Ensure the complete message is shown
+          setDisplayedMessage(message);
         }
-      }, 20); // Adjust typing speed here
+      }, intervalDelay);
 
-      return () => clearInterval(timer);
+      return () => {
+        clearInterval(timer);
+        setDisplayedMessage(message); // Show full message on cleanup
+      };
     } else {
       setDisplayedMessage(message);
+      setIsTyping(false);
     }
   }, [message, isBot, isLoading]);
 
   const detectMessageType = (content: string): ChatMessageProps['type'] => {
+    if (!content) return 'text';
     if (content.startsWith('```') && content.endsWith('```')) return 'code';
     if (content.startsWith('http://') || content.startsWith('https://')) return 'link';
     if (content.includes('*') || content.includes('#') || content.includes('_')) return 'markdown';
@@ -68,7 +88,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <div className="relative">
             <div className="absolute top-2 right-2 flex items-center gap-2">
               <Code2 className="w-4 h-4 text-gray-400" />
-              <button 
+              <button
                 onClick={() => navigator.clipboard.writeText(cleanMessage)}
                 className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
               >
@@ -80,14 +100,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </pre>
           </div>
         );
-      
+
       case 'link':
         return (
           <div className="flex items-center gap-2">
             <LinkIcon className="w-4 h-4" />
-            <a 
-              href={displayedMessage} 
-              target="_blank" 
+            <a
+              href={displayedMessage}
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:text-blue-500 underline"
             >
@@ -95,7 +115,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </a>
           </div>
         );
-      
+
       case 'file':
         return (
           <div className="flex items-center gap-2 bg-gray-800 p-2 rounded">
@@ -103,7 +123,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <span>{displayedMessage}</span>
           </div>
         );
-      
+
       default:
         return (
           <p className="whitespace-pre-wrap break-words">
@@ -119,8 +139,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div
         className={`
           rounded-lg p-4 max-w-[80%] shadow-md
-          ${isBot 
-            ? 'bg-gray-800 text-gray-100' 
+          ${isBot
+            ? 'bg-gray-800 text-gray-100'
             : 'bg-blue-600 text-white'
           }
         `}
